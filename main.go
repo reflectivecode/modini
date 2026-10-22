@@ -14,9 +14,9 @@ import (
 // version is set by the release build with -ldflags "-X main.version=...".
 var version string
 
-// getVersion falls back to the version Go records for "go install" and
+// buildVersion falls back to the version Go records for "go install" and
 // for builds from a tagged git checkout.
-func getVersion() string {
+func buildVersion() string {
 	if version != "" {
 		return version
 	}
@@ -50,7 +50,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if *showVersion {
-		fmt.Fprintln(stdout, getVersion())
+		fmt.Fprintln(stdout, buildVersion())
 		return 0
 	}
 
@@ -68,7 +68,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "error reading file: %v\n", err)
 			return 2
 		}
-		for _, skipped := range file.merge(lines, true) {
+		for _, skipped := range file.mergeFile(lines) {
 			fmt.Fprintf(stderr, "skipping line #%v: %v\n", skipped.number, skipped.text)
 		}
 	}
@@ -76,7 +76,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	if *modify != "" {
 		// Unlike junk in an input file, a bad modification is a mistake by
 		// the caller, so fail before writing anything.
-		invalid := file.merge(readModify(*modify, *delimiter), false)
+		invalid := file.applyModify(readModify(*modify, *delimiter))
 		for _, skipped := range invalid {
 			fmt.Fprintf(stderr, "invalid modification: %q\n", skipped.text)
 		}

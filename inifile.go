@@ -9,38 +9,38 @@ type iniFile struct {
 	sectionMap   map[string]*iniSection
 }
 
-func newFile() iniFile {
-	return iniFile{
+func newFile() *iniFile {
+	return &iniFile{
 		sectionOrder: []string{},
 		sectionMap:   make(map[string]*iniSection),
 	}
 }
 
-func (file *iniFile) getSection(name string) *iniSection {
-	if section, isFound := file.sectionMap[name]; isFound {
-		return section
+// ensureSection returns the named section, creating it if needed.
+func (f *iniFile) ensureSection(name string) *iniSection {
+	if s, ok := f.sectionMap[name]; ok {
+		return s
 	}
 
-	section := newSection(name)
-	file.sectionOrder = append(file.sectionOrder, name)
-	file.sectionMap[name] = section
-	return section
+	s := newSection(name)
+	f.sectionOrder = append(f.sectionOrder, name)
+	f.sectionMap[name] = s
+	return s
 }
 
 // findProperty returns nil if the section or property doesn't exist.
-func (file *iniFile) findProperty(sectionName string, propertyName string) *iniProperty {
-	section, isFound := file.sectionMap[sectionName]
-	if !isFound {
+func (f *iniFile) findProperty(sectionName string, propertyName string) *iniProperty {
+	s, ok := f.sectionMap[sectionName]
+	if !ok {
 		return nil
 	}
-	return section.propertyMap[propertyName]
+	return s.propertyMap[propertyName]
 }
 
-func (file *iniFile) allSections() []*iniSection {
+func (f *iniFile) allSections() []*iniSection {
 	sections := []*iniSection{}
-	for _, sectionName := range file.sectionOrder {
-		section := file.sectionMap[sectionName]
-		sections = append(sections, section)
+	for _, name := range f.sectionOrder {
+		sections = append(sections, f.sectionMap[name])
 	}
 	return sections
 }
@@ -62,71 +62,85 @@ type skippedLine struct {
 	text   string
 }
 
-// merge applies lines to the file and returns the lines it couldn't parse.
-func (file *iniFile) merge(lines []string, isFile bool) []skippedLine {
-	// In modify mode, sections and properties are only created when a value
-	// is set or added, so a removal never adds anything to the output.
-	sectionName := globalSection
-	skipped := []skippedLine{}
+// parsedLine is either a section header or a property in section.
+type parsedLine struct {
+	section  string
+	isHeader bool
+	key      string
+	operator string
+	value    string
+}
 
-	propertyRegex := modifyPropertyRegex
-	if isFile {
-		propertyRegex = filePropertyRegex
-	}
+// parseLines classifies each line and returns the lines it couldn't parse
+// separately. Blank lines are dropped.
+func parseLines(lines []string, propertyRegex *regexp.Regexp) ([]parsedLine, []skippedLine) {
+	parsed := []parsedLine{}
+	skipped := []skippedLine{}
+	section := globalSection
 
 	for i, line := range lines {
 		if emptyRegex.MatchString(line) {
 			continue
 		}
 
-		sectionMatch := sectionRegex.FindStringSubmatch(line)
-		if len(sectionMatch) > 0 {
-			sectionName = sectionMatch[1]
-			if isFile {
-				file.getSection(sectionName)
-			}
+		if match := sectionRegex.FindStringSubmatch(line); match != nil {
+			section = match[1]
+			parsed = append(parsed, parsedLine{section: section, isHeader: true})
 			continue
 		}
 
-		propertyMatch := propertyRegex.FindStringSubmatch(line)
-		if len(propertyMatch) > 0 {
-			property := propertyMatch[1]
-			operator := propertyMatch[2]
-			value := propertyMatch[3]
-			if isFile {
-				file.getSection(sectionName).getProperty(property).addValue(value)
-				continue
-			} else {
-				switch operator {
-				case "=":
-					file.getSection(sectionName).getProperty(property).setValue(value)
-					continue
-				case "+=":
-					file.getSection(sectionName).getProperty(property).addValue(value)
-					continue
-				case "-=":
-					if existing := file.findProperty(sectionName, property); existing != nil {
-						existing.removeValue(value)
-					}
-					continue
-				}
-			}
+		if match := propertyRegex.FindStringSubmatch(line); match != nil {
+			parsed = append(parsed, parsedLine{section: section, key: match[1], operator: match[2], value: match[3]})
+			continue
 		}
 
 		skipped = append(skipped, skippedLine{number: i + 1, text: line})
 	}
+	return parsed, skipped
+}
+
+// mergeFile adds the contents of an input file and returns the lines it
+// couldn't parse.
+func (f *iniFile) mergeFile(lines []string) []skippedLine {
+	parsed, skipped := parseLines(lines, filePropertyRegex)
+	for _, line := range parsed {
+		s := f.ensureSection(line.section)
+		if !line.isHeader {
+			s.ensureProperty(line.key).addValue(line.value)
+		}
+	}
 	return skipped
 }
 
-func (file *iniFile) render() []string {
+// applyModify applies modifications and returns the ones it couldn't
+// parse. Sections and properties are only created when a value is set or
+// added, so a removal never adds anything to the output.
+func (f *iniFile) applyModify(lines []string) []skippedLine {
+	parsed, skipped := parseLines(lines, modifyPropertyRegex)
+	for _, line := range parsed {
+		switch line.operator {
+		case "=":
+			f.ensureSection(line.section).ensureProperty(line.key).setValue(line.value)
+		case "+=":
+			f.ensureSection(line.section).ensureProperty(line.key).addValue(line.value)
+		case "-=":
+			if p := f.findProperty(line.section, line.key); p != nil {
+				p.removeValue(line.value)
+			}
+		}
+	}
+	return skipped
+}
+
+func (f *iniFile) render() []string {
 	result := []string{}
 
-	if global, isFound := file.sectionMap[globalSection]; isFound {
+	if global, ok := f.sectionMap[globalSection]; ok {
 		result = append(result, renderProperties(global)...)
 	}
 
-	for _, section := range file.allSections() {
-		if section.name == globalSection {
+	for _, s := range f.allSections() {
+		if s.name == globalSection {
 			continue
 		}
 
@@ -134,17 +148,17 @@ func (file *iniFile) render() []string {
 			result = append(result, "")
 		}
 
-		result = append(result, "["+section.name+"]")
-		result = append(result, renderProperties(section)...)
+		result = append(result, "["+s.name+"]")
+		result = append(result, renderProperties(s)...)
 	}
 	return result
 }
 
-func renderProperties(section *iniSection) []string {
+func renderProperties(s *iniSection) []string {
 	result := []string{}
-	for _, property := range section.allProperties() {
-		for _, value := range property.values {
-			result = append(result, property.name+"="+value)
+	for _, p := range s.allProperties() {
+		for _, value := range p.values {
+			result = append(result, p.name+"="+value)
 		}
 	}
 	return result

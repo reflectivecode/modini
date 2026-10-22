@@ -14,22 +14,22 @@ func newSection(name string) *iniSection {
 	}
 }
 
-func (section *iniSection) getProperty(name string) *iniProperty {
-	if property, isFound := section.propertyMap[name]; isFound {
-		return property
+// ensureProperty returns the named property, creating it if needed.
+func (s *iniSection) ensureProperty(name string) *iniProperty {
+	if p, ok := s.propertyMap[name]; ok {
+		return p
 	}
 
-	property := newProperty(name)
-	section.propertyOrder = append(section.propertyOrder, name)
-	section.propertyMap[name] = property
-	return property
+	p := newProperty(name)
+	s.propertyOrder = append(s.propertyOrder, name)
+	s.propertyMap[name] = p
+	return p
 }
 
-func (section *iniSection) allProperties() []*iniProperty {
+func (s *iniSection) allProperties() []*iniProperty {
 	properties := []*iniProperty{}
-	for _, propertyName := range section.propertyOrder {
-		property := section.propertyMap[propertyName]
-		properties = append(properties, property)
+	for _, name := range s.propertyOrder {
+		properties = append(properties, s.propertyMap[name])
 	}
 	return properties
 }

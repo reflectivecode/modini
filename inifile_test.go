@@ -35,7 +35,7 @@ func TestRenderOrder(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input, true)
+	file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -81,7 +81,7 @@ func TestSkipsGarbage(t *testing.T) {
 	}
 
 	file := newFile()
-	skipped := file.merge(input, true)
+	skipped := file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -94,7 +94,7 @@ func TestSkipsGarbage(t *testing.T) {
 
 func TestInvalidModifyIsReported(t *testing.T) {
 	file := newFile()
-	skipped := file.merge([]string{"[S]", "A=1", "Bvalue", "[Broken", "", "C"}, false)
+	skipped := file.applyModify([]string{"[S]", "A=1", "Bvalue", "[Broken", "", "C"})
 
 	expected := []skippedLine{
 		{3, "Bvalue"},
@@ -150,8 +150,8 @@ func TestMergesCorrectly(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input1, true)
-	file.merge(input2, false)
+	file.mergeFile(input1)
+	file.applyModify(input2)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -172,7 +172,7 @@ func TestNoDuplicatesFromInput(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input, true)
+	file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -199,8 +199,8 @@ func TestNoDuplicatesFromModify(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input1, true)
-	file.merge(input2, false)
+	file.mergeFile(input1)
+	file.applyModify(input2)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -230,8 +230,8 @@ func TestGlobalProperties(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input1, true)
-	file.merge(input2, false)
+	file.mergeFile(input1)
+	file.applyModify(input2)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -241,7 +241,7 @@ func TestGlobalProperties(t *testing.T) {
 
 func TestModifyOnlyGlobal(t *testing.T) {
 	file := newFile()
-	file.merge([]string{"Prop=x"}, false)
+	file.applyModify([]string{"Prop=x"})
 	actual := file.render()
 
 	expected := []string{"Prop=x"}
@@ -252,7 +252,7 @@ func TestModifyOnlyGlobal(t *testing.T) {
 
 func TestEmptyFile(t *testing.T) {
 	file := newFile()
-	file.merge([]string{}, true)
+	file.mergeFile([]string{})
 	actual := file.render()
 
 	if len(actual) != 0 {
@@ -280,8 +280,8 @@ func TestSetReplacesAllValues(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input1, true)
-	file.merge(input2, false)
+	file.mergeFile(input1)
+	file.applyModify(input2)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -307,8 +307,8 @@ func TestRemoveLastValueDropsProperty(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input1, true)
-	file.merge(input2, false)
+	file.mergeFile(input1)
+	file.applyModify(input2)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -334,7 +334,7 @@ func TestOperatorsAreLiteralInInputFile(t *testing.T) {
 	}
 
 	file := newFile()
-	skipped := file.merge(input, true)
+	skipped := file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -345,7 +345,7 @@ func TestOperatorsAreLiteralInInputFile(t *testing.T) {
 	}
 
 	// The literal key "A+" can still be targeted from -modify.
-	file.merge([]string{"[S]", "A+ = 3"}, false)
+	file.applyModify([]string{"[S]", "A+ = 3"})
 	actual = file.render()
 	expected = []string{"[S]", "A=1", "A+=3", "A-=1", "CFLAGS +=-O2"}
 	if !reflect.DeepEqual(actual, expected) {
@@ -369,7 +369,7 @@ func TestValuesKeepSpecialCharacters(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input, true)
+	file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -390,7 +390,7 @@ func TestWindowsLineEndings(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input, true)
+	file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -425,7 +425,7 @@ func TestSectionHeaderWithIndentAndComment(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input, true)
+	file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -458,8 +458,8 @@ func TestWhitespaceAroundOperators(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input1, true)
-	file.merge(input2, false)
+	file.mergeFile(input1)
+	file.applyModify(input2)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -489,7 +489,7 @@ func TestIndentedAndPunctuatedKeys(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input, true)
+	file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -518,8 +518,8 @@ func TestRemoveDoesNotCreate(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input1, true)
-	file.merge(input2, false)
+	file.mergeFile(input1)
+	file.applyModify(input2)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -527,7 +527,7 @@ func TestRemoveDoesNotCreate(t *testing.T) {
 	}
 
 	// A later set should still create the property in its natural position.
-	file.merge([]string{"[S]", "B=2"}, false)
+	file.applyModify([]string{"[S]", "B=2"})
 	actual = file.render()
 	expected = []string{"[S]", "A=1", "B=2"}
 	if !reflect.DeepEqual(actual, expected) {
@@ -550,7 +550,7 @@ func TestEmptySectionFromInputIsKept(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(input, true)
+	file.mergeFile(input)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {

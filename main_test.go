@@ -42,7 +42,7 @@ func TestReadFileHandlesCRLF(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(lines, true)
+	file.mergeFile(lines)
 	actual := file.render()
 
 	expected := []string{"[S]", "A=1"}
@@ -64,8 +64,8 @@ func TestReadFileStripsBOM(t *testing.T) {
 	}
 
 	file := newFile()
-	file.merge(lines, true)
-	file.merge(readModify("[Main];key=2", ";"), false)
+	file.mergeFile(lines)
+	file.applyModify(readModify("[Main];key=2", ";"))
 	actual := file.render()
 
 	expected := []string{"[Main]", "key=2"}
@@ -122,9 +122,9 @@ func TestReadmeExample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	file.merge(lines, true)
+	file.mergeFile(lines)
 
-	file.merge(readModify("[Section1];Prop2=frog;Prop3=bear;PropList+=shark;PropList-=trout;[Section2];New=unicorn", ";"), false)
+	file.applyModify(readModify("[Section1];Prop2=frog;Prop3=bear;PropList+=shark;PropList-=trout;[Section2];New=unicorn", ";"))
 
 	expected := []string{
 		"[Section1]",
@@ -263,17 +263,17 @@ func TestCheckArgs(t *testing.T) {
 	}
 }
 
-func TestGetVersion(t *testing.T) {
+func TestBuildVersion(t *testing.T) {
 	original := version
 	defer func() { version = original }()
 
 	version = "v1.2.3"
-	if actual := getVersion(); actual != "v1.2.3" {
+	if actual := buildVersion(); actual != "v1.2.3" {
 		t.Errorf(`Expected the release version. Actual: %q`, actual)
 	}
 
 	version = ""
-	if actual := getVersion(); actual == "" {
+	if actual := buildVersion(); actual == "" {
 		t.Error("expected a fallback version")
 	}
 }
