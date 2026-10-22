@@ -47,7 +47,11 @@ func (file *iniFile) allSections() []*iniSection {
 
 var emptyRegex = regexp.MustCompile(`^\s*$`)
 var sectionRegex = regexp.MustCompile(`^\s*\[([^\[\]]+)\]\s*([;#].*)?$`)
-var propertyRegex = regexp.MustCompile(`^\s*([^\s;#\[=][^=]*?)\s*(=|\+=|\-=)\s*(.*?)\s*$`)
+
+// Operators only have meaning in -modify. In an input file, a line like
+// "a+=b" is the key "a+" with the value "b".
+var filePropertyRegex = regexp.MustCompile(`^\s*([^\s;#\[=][^=]*?)\s*(=)\s*(.*?)\s*$`)
+var modifyPropertyRegex = regexp.MustCompile(`^\s*([^\s;#\[=][^=]*?)\s*(=|\+=|\-=)\s*(.*?)\s*$`)
 
 // globalSection holds properties that appear before any [section] header.
 // The section regex requires a non-empty name, so this can't collide.
@@ -64,6 +68,11 @@ func (file *iniFile) merge(lines []string, isFile bool) []skippedLine {
 	// is set or added, so a removal never adds anything to the output.
 	sectionName := globalSection
 	skipped := []skippedLine{}
+
+	propertyRegex := modifyPropertyRegex
+	if isFile {
+		propertyRegex = filePropertyRegex
+	}
 
 	for i, line := range lines {
 		if emptyRegex.MatchString(line) {
@@ -85,10 +94,8 @@ func (file *iniFile) merge(lines []string, isFile bool) []skippedLine {
 			operator := propertyMatch[2]
 			value := propertyMatch[3]
 			if isFile {
-				if operator == "=" {
-					file.getSection(sectionName).getProperty(property).addValue(value)
-					continue
-				}
+				file.getSection(sectionName).getProperty(property).addValue(value)
+				continue
 			} else {
 				switch operator {
 				case "=":

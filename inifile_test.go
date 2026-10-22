@@ -316,23 +316,38 @@ func TestRemoveLastValueDropsProperty(t *testing.T) {
 	}
 }
 
-func TestOperatorsIgnoredInInputFile(t *testing.T) {
+func TestOperatorsAreLiteralInInputFile(t *testing.T) {
 	input := []string{
 		"[S]",
 		"A=1",
 		"A+=2",
 		"A-=1",
+		"CFLAGS += -O2",
 	}
 
 	expected := []string{
 		"[S]",
 		"A=1",
+		"A+=2",
+		"A-=1",
+		"CFLAGS +=-O2",
 	}
 
 	file := newFile()
-	file.merge(input, true)
+	skipped := file.merge(input, true)
 	actual := file.render()
 
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+	if len(skipped) != 0 {
+		t.Errorf(`Expected no skipped lines. Actual: %v`, skipped)
+	}
+
+	// The literal key "A+" can still be targeted from -modify.
+	file.merge([]string{"[S]", "A+ = 3"}, false)
+	actual = file.render()
+	expected = []string{"[S]", "A=1", "A+=3", "A-=1", "CFLAGS +=-O2"}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf(`Output not as expected. Actual: %v`, actual)
 	}
