@@ -61,7 +61,10 @@ func main() {
 	output := strings.Join(file.render(), lineEnding) + lineEnding
 
 	if *outFile == "" {
-		fmt.Print(output)
+		if _, err := fmt.Print(output); err != nil {
+			fmt.Fprintf(os.Stderr, "error writing output: %v\n", err)
+			os.Exit(3)
+		}
 	} else {
 		if err := writeFile(*outFile, output); err != nil {
 			fmt.Fprintf(os.Stderr, "error writing file: %v\n", err)
