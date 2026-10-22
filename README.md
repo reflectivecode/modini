@@ -1,7 +1,7 @@
 # modini
 Modify ini files from the command line
 
-[![Build Status](https://travis-ci.org/reflectivecode/modini.svg?branch=master)](https://travis-ci.org/reflectivecode/modini)
+[![CI](https://github.com/reflectivecode/modini/actions/workflows/ci.yml/badge.svg)](https://github.com/reflectivecode/modini/actions/workflows/ci.yml)
 
 ## Example
 ```
@@ -28,25 +28,51 @@ Prop3=bear
 New=unicorn
 ```
 
-## Build
-```
-go build
-go test
-```
+## Modify syntax
+The modify string is split on the delimiter (`;` by default) and on newlines. Each piece is one of:
+
+| Syntax | Effect |
+| --- | --- |
+| `[Section]` | Following modifications apply to this section (created if missing) |
+| `Prop=value` | Replace all values of `Prop` with `value` |
+| `Prop+=value` | Add `value` to `Prop`, unless it is already present |
+| `Prop-=value` | Remove `value` from `Prop` |
+
+Properties that come before any `[Section]` apply to the top of the file, outside any section.
+
+If your values contain `;`, choose a different delimiter with `-delimit`.
+
+## Notes
+- Sections and properties keep their original order, and new ones are added at the end.
+- If a section appears more than once in the input, its properties are merged into one section.
+- Duplicate `Prop=value` lines are collapsed into one.
+- Comments and any lines that can't be parsed are dropped. A warning for each is printed to stderr.
+- `-input` and `-output` can be the same file.
+- If `-output` is omitted, the result is written to stdout.
 
 ## Options
+At least one of `-input` or `-modify` is required.
 ```
-usage: modini --input=INPUT [<flags>]
-
-Flags:
   -delimit string
-        (optional) Split the modify string on this value. (default ";")
+        Split the modify string on this value. (default ";")
   -input string
-        (required) Path to input ini file.
+        Path to input ini file.
   -modify string
-        (optional) Modifications to make. ex: [section1];prop1=value1;prop2=value2;[section2];prop1=value3.
+        Modifications to make. ex: [section1];prop1=value1;prop2=value2;[section2];prop1=value3.
+  -newline string
+        Output uses this line ending. (default "\n")
   -output string
-        (optional) Path to output ini file.
+        Path to output ini file.
   -version
         output the version
+```
+
+## Download
+Prebuilt binaries for Linux, macOS and Windows are attached to each [GitHub release](https://github.com/reflectivecode/modini/releases), along with a `SHA256SUMS` file.
+
+## Build
+Requires Go 1.26 or newer.
+```
+go build
+go test ./...
 ```
