@@ -49,7 +49,7 @@ If your values contain `;`, choose a different delimiter with `-delimit`.
 - Whitespace around `=`, `+=` and `-=` is removed, so `Prop = value` is written as `Prop=value`.
 - Comments and any lines in the input file that can't be parsed are dropped. A warning for each is printed to stderr.
 - A piece of the modify string that can't be parsed is an error. Nothing is written and the exit code is 1.
-- `-input` and `-output` can be the same file. The output is written to a temporary file and then renamed into place, so a failed write leaves the original untouched.
+- `-input` and `-output` can be the same file.
 - If `-output` is omitted, the result is written to stdout.
 
 ## Limitations
@@ -58,6 +58,7 @@ If your values contain `;`, choose a different delimiter with `-delimit`.
 - Section and key names are case-sensitive, and spaces inside brackets count. `[a]`, `[A]` and `[ a ]` are three different sections.
 - Quotes are not interpreted. `x="a b"` has the value `"a b"`, including the quotes.
 - In `-modify`, `Prop+=value` and `Prop-=value` are always operators. To set a key whose name ends in `+` or `-`, put a space before the `=`, as in `Prop+ =value`.
+- The output file is overwritten in place. If the write fails partway, for example because the disk is full, the file can be left empty or incomplete. When `-input` and `-output` are the same file, the original is lost in that case. If that matters, write to a different file and move it over the original once modini succeeds.
 
 ## Options
 At least one of `-input` or `-modify` is required.

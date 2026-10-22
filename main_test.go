@@ -152,7 +152,6 @@ func TestWriteFileReplacesContents(t *testing.T) {
 		t.Errorf(`Expected permissions to be kept. Actual: %v`, info.Mode().Perm())
 	}
 
-	assertOnlyFiles(t, dir, "out.ini")
 }
 
 func TestWriteFileCreatesNewFile(t *testing.T) {
@@ -171,7 +170,6 @@ func TestWriteFileCreatesNewFile(t *testing.T) {
 		t.Errorf(`Output not as expected. Actual: %q`, content)
 	}
 
-	assertOnlyFiles(t, dir, "out.ini")
 }
 
 func TestWriteFileMissingDirectory(t *testing.T) {
@@ -260,17 +258,26 @@ func TestGetVersion(t *testing.T) {
 	}
 }
 
-func assertOnlyFiles(t *testing.T, dir string, names ...string) {
-	t.Helper()
-	entries, err := os.ReadDir(dir)
+func TestWriteFileKeepsHardLinks(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.ini")
+	link := filepath.Join(dir, "link.ini")
+	if err := os.WriteFile(path, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(path, link); err != nil {
+		t.Skipf("cannot create hard link: %v", err)
+	}
+
+	if err := writeFile(path, "new"); err != nil {
+		t.Fatal(err)
+	}
+
+	content, err := os.ReadFile(link)
 	if err != nil {
 		t.Fatal(err)
 	}
-	actual := []string{}
-	for _, entry := range entries {
-		actual = append(actual, entry.Name())
-	}
-	if !reflect.DeepEqual(actual, names) {
-		t.Errorf(`Unexpected files in directory: %v`, actual)
+	if string(content) != "new" {
+		t.Errorf(`Expected the hard link to see the new contents. Actual: %q`, content)
 	}
 }
