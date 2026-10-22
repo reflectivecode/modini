@@ -54,12 +54,16 @@ func main() {
 	}
 }
 
+// utf8BOM is often written at the start of files by Windows editors.
+var utf8BOM = string(rune(0xFEFF))
+
 func readFile(filename string) ([]string, error) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return strings.Split(string(content), "\n"), nil
+	text := strings.TrimPrefix(string(content), utf8BOM)
+	return strings.Split(text, "\n"), nil
 }
 
 func readModify(modify string, delimiter string) []string {

@@ -49,6 +49,29 @@ func TestReadFileHandlesCRLF(t *testing.T) {
 	}
 }
 
+func TestReadFileStripsBOM(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "input.ini")
+	content := strings.Join([]string{utf8BOM + "[Main]", "key=1", ""}, "\n")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	lines, err := readFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	file := newFile()
+	file.merge(lines, true)
+	file.merge(readModify("[Main];key=2", ";"), false)
+	actual := file.render()
+
+	expected := []string{"[Main]", "key=2"}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
 func TestReadFileMissing(t *testing.T) {
 	_, err := readFile(filepath.Join(t.TempDir(), "missing.ini"))
 	if err == nil {
