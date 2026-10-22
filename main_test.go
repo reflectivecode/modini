@@ -4,29 +4,27 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
 
 func TestReadModifySplitsOnDelimiterAndNewlines(t *testing.T) {
-	actual := readModify("[S];A=1\nB=2|C=3", ";")
+	got := readModify("[S];A=1\nB=2|C=3", ";")
+	want := []string{"[S]", "A=1", "B=2|C=3"}
 
-	expected := []string{"[S]", "A=1", "B=2|C=3"}
-
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	if !slices.Equal(got, want) {
+		t.Errorf("readModify() = %q, want %q", got, want)
 	}
 }
 
 func TestReadModifyCustomDelimiter(t *testing.T) {
-	actual := readModify("[S]|A=1;2|B=3", "|")
+	got := readModify("[S]|A=1;2|B=3", "|")
+	want := []string{"[S]", "A=1;2", "B=3"}
 
-	expected := []string{"[S]", "A=1;2", "B=3"}
-
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	if !slices.Equal(got, want) {
+		t.Errorf("readModify() = %q, want %q", got, want)
 	}
 }
 
@@ -43,11 +41,11 @@ func TestReadFileHandlesCRLF(t *testing.T) {
 
 	file := newFile()
 	file.mergeFile(lines)
-	actual := file.render()
+	got := file.render()
+	want := []string{"[S]", "A=1"}
 
-	expected := []string{"[S]", "A=1"}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	if !slices.Equal(got, want) {
+		t.Errorf("render() = %q, want %q", got, want)
 	}
 }
 
@@ -66,11 +64,11 @@ func TestReadFileStripsBOM(t *testing.T) {
 	file := newFile()
 	file.mergeFile(lines)
 	file.applyModify(readModify("[Main];key=2", ";"))
-	actual := file.render()
+	got := file.render()
+	want := []string{"[Main]", "key=2"}
 
-	expected := []string{"[Main]", "key=2"}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	if !slices.Equal(got, want) {
+		t.Errorf("render() = %q, want %q", got, want)
 	}
 }
 
@@ -88,15 +86,14 @@ func TestReadFileRejectsUTF16(t *testing.T) {
 		}
 
 		if _, err := readFile(path); err == nil {
-			t.Errorf(`%v: expected an error for a UTF-16 file`, name)
+			t.Errorf("%v: readFile() error = nil, want an error", name)
 		}
 	}
 }
 
 func TestReadFileMissing(t *testing.T) {
-	_, err := readFile(filepath.Join(t.TempDir(), "missing.ini"))
-	if err == nil {
-		t.Error("expected an error for a missing file")
+	if _, err := readFile(filepath.Join(t.TempDir(), "missing.ini")); err == nil {
+		t.Error("readFile() error = nil, want an error")
 	}
 }
 
@@ -116,17 +113,16 @@ func TestReadmeExample(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	file := newFile()
-
 	lines, err := readFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	file := newFile()
 	file.mergeFile(lines)
-
 	file.applyModify(readModify("[Section1];Prop2=frog;Prop3=bear;PropList+=shark;PropList-=trout;[Section2];New=unicorn", ";"))
-
-	expected := []string{
+	got := file.render()
+	want := []string{
 		"[Section1]",
 		"Prop1=dog",
 		"Prop2=frog",
@@ -138,16 +134,14 @@ func TestReadmeExample(t *testing.T) {
 		"[Section2]",
 		"New=unicorn",
 	}
-	actual := file.render()
 
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	if !slices.Equal(got, want) {
+		t.Errorf("render() =\n%q\nwant\n%q", got, want)
 	}
 }
 
 func TestWriteFileReplacesContents(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "out.ini")
+	path := filepath.Join(t.TempDir(), "out.ini")
 	if err := os.WriteFile(path, []byte("old contents that are longer"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -156,47 +150,32 @@ func TestWriteFileReplacesContents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(content) != "new" {
-		t.Errorf(`Output not as expected. Actual: %q`, content)
-	}
+	assertFileContents(t, path, "new")
 
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
-		t.Errorf(`Expected permissions to be kept. Actual: %v`, info.Mode().Perm())
+	if got, want := info.Mode().Perm(), os.FileMode(0600); runtime.GOOS != "windows" && got != want {
+		t.Errorf("permissions = %v, want %v", got, want)
 	}
-
 }
 
 func TestWriteFileCreatesNewFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "out.ini")
+	path := filepath.Join(t.TempDir(), "out.ini")
 
 	if err := writeFile(path, "new"); err != nil {
 		t.Fatal(err)
 	}
 
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(content) != "new" {
-		t.Errorf(`Output not as expected. Actual: %q`, content)
-	}
-
+	assertFileContents(t, path, "new")
 }
 
 func TestWriteFileMissingDirectory(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing", "out.ini")
 
 	if err := writeFile(path, "new"); err == nil {
-		t.Error("expected an error for a missing directory")
+		t.Error("writeFile() error = nil, want an error")
 	}
 }
 
@@ -220,62 +199,10 @@ func TestWriteFileFollowsSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		t.Error("expected the symlink to be kept")
+		t.Errorf("link mode = %v, want a symlink", info.Mode())
 	}
 
-	content, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(content) != "new" {
-		t.Errorf(`Output not as expected. Actual: %q`, content)
-	}
-}
-
-func TestUnescapeNewline(t *testing.T) {
-	cases := map[string]string{
-		`\r\n`: "\r\n",
-		`\n`:   "\n",
-		`\r`:   "\r",
-		"\r\n": "\r\n",
-		"\n":   "\n",
-	}
-
-	for input, expected := range cases {
-		if actual := unescapeNewline(input); actual != expected {
-			t.Errorf(`unescapeNewline(%q) = %q, expected %q`, input, actual, expected)
-		}
-	}
-}
-
-func TestCheckArgs(t *testing.T) {
-	if err := checkArgs("in.ini", "", ";"); err != nil {
-		t.Errorf(`Expected input alone to be valid. Actual: %v`, err)
-	}
-	if err := checkArgs("", "[S];A=1", ";"); err != nil {
-		t.Errorf(`Expected modify alone to be valid. Actual: %v`, err)
-	}
-	if err := checkArgs("", "", ";"); err == nil {
-		t.Error("expected an error when -input and -modify are both missing")
-	}
-	if err := checkArgs("in.ini", "[S];A=1", ""); err == nil {
-		t.Error("expected an error for an empty -delimit")
-	}
-}
-
-func TestBuildVersion(t *testing.T) {
-	original := version
-	defer func() { version = original }()
-
-	version = "v1.2.3"
-	if actual := buildVersion(); actual != "v1.2.3" {
-		t.Errorf(`Expected the release version. Actual: %q`, actual)
-	}
-
-	version = ""
-	if actual := buildVersion(); actual == "" {
-		t.Error("expected a fallback version")
-	}
+	assertFileContents(t, target, "new")
 }
 
 func TestWriteFileKeepsHardLinks(t *testing.T) {
@@ -293,12 +220,56 @@ func TestWriteFileKeepsHardLinks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	content, err := os.ReadFile(link)
-	if err != nil {
-		t.Fatal(err)
+	assertFileContents(t, link, "new")
+}
+
+func TestUnescapeNewline(t *testing.T) {
+	tests := map[string]string{
+		`\r\n`: "\r\n",
+		`\n`:   "\n",
+		`\r`:   "\r",
+		"\r\n": "\r\n",
+		"\n":   "\n",
 	}
-	if string(content) != "new" {
-		t.Errorf(`Expected the hard link to see the new contents. Actual: %q`, content)
+
+	for input, want := range tests {
+		if got := unescapeNewline(input); got != want {
+			t.Errorf("unescapeNewline(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestCheckArgs(t *testing.T) {
+	tests := []struct {
+		inFile, modify, delimiter string
+		wantErr                   bool
+	}{
+		{"in.ini", "", ";", false},
+		{"", "[S];A=1", ";", false},
+		{"", "", ";", true},
+		{"in.ini", "[S];A=1", "", true},
+	}
+
+	for _, tt := range tests {
+		err := checkArgs(tt.inFile, tt.modify, tt.delimiter)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("checkArgs(%q, %q, %q) error = %v, want error %v", tt.inFile, tt.modify, tt.delimiter, err, tt.wantErr)
+		}
+	}
+}
+
+func TestBuildVersion(t *testing.T) {
+	original := version
+	defer func() { version = original }()
+
+	version = "v1.2.3"
+	if got, want := buildVersion(), "v1.2.3"; got != want {
+		t.Errorf("buildVersion() = %q, want %q", got, want)
+	}
+
+	version = ""
+	if got := buildVersion(); got == "" {
+		t.Error(`buildVersion() = "", want a fallback version`)
 	}
 }
 
@@ -312,10 +283,10 @@ func TestRunWritesToStdout(t *testing.T) {
 	code, stdout, stderr := runModini("-modify", "[S];A=1")
 
 	if code != 0 {
-		t.Errorf(`Expected exit code 0. Actual: %v, stderr: %v`, code, stderr)
+		t.Errorf("exit code = %v, want 0 (stderr: %q)", code, stderr)
 	}
-	if stdout != "[S]\nA=1\n" {
-		t.Errorf(`Output not as expected. Actual: %q`, stdout)
+	if want := "[S]\nA=1\n"; stdout != want {
+		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
 }
 
@@ -330,49 +301,49 @@ func TestRunWritesToFile(t *testing.T) {
 	code, stdout, stderr := runModini("-input", input, "-output", output, "-modify", "[S];B=2", "-newline", `\r\n`)
 
 	if code != 0 {
-		t.Errorf(`Expected exit code 0. Actual: %v, stderr: %v`, code, stderr)
+		t.Errorf("exit code = %v, want 0 (stderr: %q)", code, stderr)
 	}
 	if stdout != "" {
-		t.Errorf(`Expected nothing on stdout. Actual: %q`, stdout)
+		t.Errorf("stdout = %q, want empty", stdout)
 	}
-	if !strings.Contains(stderr, "skipping line #3: junk") {
-		t.Errorf(`Expected a warning for the junk line. Actual: %q`, stderr)
+	if want := "skipping line #3: junk"; !strings.Contains(stderr, want) {
+		t.Errorf("stderr = %q, want it to contain %q", stderr, want)
 	}
-	content, err := os.ReadFile(output)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(content) != "[S]\r\nA=1\r\nB=2\r\n" {
-		t.Errorf(`Output not as expected. Actual: %q`, content)
-	}
+	assertFileContents(t, output, "[S]\r\nA=1\r\nB=2\r\n")
 }
 
 func TestRunVersion(t *testing.T) {
 	code, stdout, _ := runModini("-version")
 
-	if code != 0 || strings.TrimSpace(stdout) == "" {
-		t.Errorf(`Expected a version and exit code 0. Actual: %v, %q`, code, stdout)
+	if code != 0 {
+		t.Errorf("exit code = %v, want 0", code)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Errorf("stdout = %q, want a version", stdout)
 	}
 }
 
 func TestRunHelp(t *testing.T) {
 	code, _, stderr := runModini("-h")
 
-	if code != 0 || !strings.Contains(stderr, "-modify") {
-		t.Errorf(`Expected usage and exit code 0. Actual: %v, %q`, code, stderr)
+	if code != 0 {
+		t.Errorf("exit code = %v, want 0", code)
+	}
+	if want := "-modify"; !strings.Contains(stderr, want) {
+		t.Errorf("stderr = %q, want usage containing %q", stderr, want)
 	}
 }
 
 func TestRunInvalidArguments(t *testing.T) {
-	cases := [][]string{
+	tests := [][]string{
 		{},
 		{"-unknown"},
 		{"-modify", "[S];A=1", "-delimit", ""},
 	}
 
-	for _, args := range cases {
+	for _, args := range tests {
 		if code, _, _ := runModini(args...); code != 1 {
-			t.Errorf(`%v: expected exit code 1. Actual: %v`, args, code)
+			t.Errorf("run(%q) exit code = %v, want 1", args, code)
 		}
 	}
 }
@@ -383,17 +354,15 @@ func TestRunInvalidModifyWritesNothing(t *testing.T) {
 	code, stdout, stderr := runModini("-output", output, "-modify", "[S];A=1;oops")
 
 	if code != 1 {
-		t.Errorf(`Expected exit code 1. Actual: %v`, code)
+		t.Errorf("exit code = %v, want 1", code)
 	}
 	if stdout != "" {
-		t.Errorf(`Expected nothing on stdout. Actual: %q`, stdout)
+		t.Errorf("stdout = %q, want empty", stdout)
 	}
-	if !strings.Contains(stderr, `invalid modification: "oops"`) {
-		t.Errorf(`Expected an error naming the bad piece. Actual: %q`, stderr)
+	if want := `invalid modification: "oops"`; !strings.Contains(stderr, want) {
+		t.Errorf("stderr = %q, want it to contain %q", stderr, want)
 	}
-	if _, err := os.Stat(output); !os.IsNotExist(err) {
-		t.Errorf(`Expected no output file. Actual error: %v`, err)
-	}
+	assertNoFile(t, output)
 }
 
 func TestRunUnreadableInputWritesNothing(t *testing.T) {
@@ -409,26 +378,24 @@ func TestRunUnreadableInputWritesNothing(t *testing.T) {
 		code, stdout, _ := runModini("-input", input, "-output", output)
 
 		if code != 2 {
-			t.Errorf(`%v: expected exit code 2. Actual: %v`, input, code)
+			t.Errorf("%v: exit code = %v, want 2", input, code)
 		}
 		if stdout != "" {
-			t.Errorf(`%v: expected nothing on stdout. Actual: %q`, input, stdout)
+			t.Errorf("%v: stdout = %q, want empty", input, stdout)
 		}
-		if _, err := os.Stat(output); !os.IsNotExist(err) {
-			t.Errorf(`%v: expected no output file. Actual error: %v`, input, err)
-		}
+		assertNoFile(t, output)
 	}
 }
 
 func TestRunWriteFailure(t *testing.T) {
 	output := filepath.Join(t.TempDir(), "missing", "output.ini")
 	if code, _, _ := runModini("-modify", "[S];A=1", "-output", output); code != 3 {
-		t.Errorf(`Expected exit code 3 for an unwritable file. Actual: %v`, code)
+		t.Errorf("unwritable file: exit code = %v, want 3", code)
 	}
 
 	var stderr strings.Builder
 	if code := run([]string{"-modify", "[S];A=1"}, failingWriter{}, &stderr); code != 3 {
-		t.Errorf(`Expected exit code 3 for a failed stdout write. Actual: %v`, code)
+		t.Errorf("failed stdout write: exit code = %v, want 3", code)
 	}
 }
 
@@ -436,4 +403,22 @@ type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) {
 	return 0, errors.New("disk full")
+}
+
+func assertFileContents(t *testing.T, path string, want string) {
+	t.Helper()
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Errorf("%v contents = %q, want %q", filepath.Base(path), got, want)
+	}
+}
+
+func assertNoFile(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("%v: stat error = %v, want file not to exist", filepath.Base(path), err)
+	}
 }
