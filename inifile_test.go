@@ -181,6 +181,181 @@ func TestNoDuplicatesFromModify(t *testing.T) {
 	}
 }
 
+func TestGlobalProperties(t *testing.T) {
+	input1 := sliceToChannel([]string{
+		"root=true",
+		"[My.Section]",
+		"Prop=value",
+	})
+
+	input2 := sliceToChannel([]string{
+		"extra=yes",
+		"[My.Section]",
+		"Prop=changed",
+	})
+
+	expected := []string{
+		"root=true",
+		"extra=yes",
+		"",
+		"[My.Section]",
+		"Prop=changed",
+	}
+
+	file := newFile()
+	file.merge(input1, true)
+	file.merge(input2, false)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
+func TestModifyOnlyGlobal(t *testing.T) {
+	file := newFile()
+	file.merge(sliceToChannel([]string{"Prop=x"}), false)
+	actual := file.render()
+
+	expected := []string{"Prop=x"}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
+func TestEmptyFile(t *testing.T) {
+	file := newFile()
+	file.merge(sliceToChannel([]string{}), true)
+	actual := file.render()
+
+	if len(actual) != 0 {
+		t.Errorf(`Expected no output. Actual: %v`, actual)
+	}
+}
+
+func TestSetReplacesAllValues(t *testing.T) {
+	input1 := sliceToChannel([]string{
+		"[S]",
+		"List=a",
+		"List=b",
+		"List=c",
+	})
+
+	input2 := sliceToChannel([]string{
+		"[S]",
+		"List=z",
+		"List-=missing",
+	})
+
+	expected := []string{
+		"[S]",
+		"List=z",
+	}
+
+	file := newFile()
+	file.merge(input1, true)
+	file.merge(input2, false)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
+func TestRemoveLastValueDropsProperty(t *testing.T) {
+	input1 := sliceToChannel([]string{
+		"[S]",
+		"A=1",
+		"B=2",
+	})
+
+	input2 := sliceToChannel([]string{
+		"[S]",
+		"A-=1",
+	})
+
+	expected := []string{
+		"[S]",
+		"B=2",
+	}
+
+	file := newFile()
+	file.merge(input1, true)
+	file.merge(input2, false)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
+func TestOperatorsIgnoredInInputFile(t *testing.T) {
+	input := sliceToChannel([]string{
+		"[S]",
+		"A=1",
+		"A+=2",
+		"A-=1",
+	})
+
+	expected := []string{
+		"[S]",
+		"A=1",
+	}
+
+	file := newFile()
+	file.merge(input, true)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
+func TestValuesKeepSpecialCharacters(t *testing.T) {
+	input := sliceToChannel([]string{
+		"[S]",
+		"Format=100% %s %d",
+		"Url=http://example.com/?a=b&c=d",
+		"Trailing=value   ",
+	})
+
+	expected := []string{
+		"[S]",
+		"Format=100% %s %d",
+		"Url=http://example.com/?a=b&c=d",
+		"Trailing=value",
+	}
+
+	file := newFile()
+	file.merge(input, true)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
+func TestWindowsLineEndings(t *testing.T) {
+	input := sliceToChannel([]string{
+		"[S]\r",
+		"A=1\r",
+		"\r",
+	})
+
+	expected := []string{
+		"[S]",
+		"A=1",
+	}
+
+	file := newFile()
+	file.merge(input, true)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
 func sliceToChannel(list []string) <-chan string {
 	channel := make(chan string)
 	go sliceToChannelHelper(channel, list)
