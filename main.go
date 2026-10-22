@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -26,24 +27,37 @@ func getVersion() string {
 }
 
 func main() {
-	inFile := flag.String("input", "", "Path to input ini file.")
-	outFile := flag.String("output", "", "Path to output ini file.")
-	delimiter := flag.String("delimit", ";", "Split the modify string on this value.")
-	modify := flag.String("modify", "", "Modifications to make. ex: [section1];prop1=value1;prop2=value2;[section2];prop1=value3.")
-	newline := flag.String("newline", "\n", `Output uses this line ending. Escapes \r and \n are interpreted, ex: \r\n.`)
-	showVersion := flag.Bool("version", false, "output the version")
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
 
-	flag.Parse()
+// run is main without the process-level side effects, so tests can check
+// output and exit codes.
+func run(args []string, stdout io.Writer, stderr io.Writer) int {
+	flags := flag.NewFlagSet("modini", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	inFile := flags.String("input", "", "Path to input ini file.")
+	outFile := flags.String("output", "", "Path to output ini file.")
+	delimiter := flags.String("delimit", ";", "Split the modify string on this value.")
+	modify := flags.String("modify", "", "Modifications to make. ex: [section1];prop1=value1;prop2=value2;[section2];prop1=value3.")
+	newline := flags.String("newline", "\n", `Output uses this line ending. Escapes \r and \n are interpreted, ex: \r\n.`)
+	showVersion := flags.Bool("version", false, "output the version")
+
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 1
+	}
 
 	if *showVersion {
-		fmt.Println(getVersion())
-		return
+		fmt.Fprintln(stdout, getVersion())
+		return 0
 	}
 
 	if err := checkArgs(*inFile, *modify, *delimiter); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n\n", err)
-		flag.PrintDefaults()
-		os.Exit(1)
+		fmt.Fprintf(stderr, "%v\n\n", err)
+		flags.PrintDefaults()
+		return 1
 	}
 
 	file := newFile()
@@ -51,11 +65,11 @@ func main() {
 	if *inFile != "" {
 		lines, err := readFile(*inFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error reading file: %v\n", err)
-			os.Exit(2)
+			fmt.Fprintf(stderr, "error reading file: %v\n", err)
+			return 2
 		}
 		for _, skipped := range file.merge(lines, true) {
-			fmt.Fprintf(os.Stderr, "skipping line #%v: %v\n", skipped.number, skipped.text)
+			fmt.Fprintf(stderr, "skipping line #%v: %v\n", skipped.number, skipped.text)
 		}
 	}
 
@@ -64,10 +78,10 @@ func main() {
 		// the caller, so fail before writing anything.
 		invalid := file.merge(readModify(*modify, *delimiter), false)
 		for _, skipped := range invalid {
-			fmt.Fprintf(os.Stderr, "invalid modification: %q\n", skipped.text)
+			fmt.Fprintf(stderr, "invalid modification: %q\n", skipped.text)
 		}
 		if len(invalid) > 0 {
-			os.Exit(1)
+			return 1
 		}
 	}
 
@@ -75,18 +89,18 @@ func main() {
 	output := strings.Join(file.render(), lineEnding) + lineEnding
 
 	if *outFile == "" {
-		if _, err := fmt.Print(output); err != nil {
-			fmt.Fprintf(os.Stderr, "error writing output: %v\n", err)
-			os.Exit(3)
+		if _, err := io.WriteString(stdout, output); err != nil {
+			fmt.Fprintf(stderr, "error writing output: %v\n", err)
+			return 3
 		}
 	} else {
 		if err := writeFile(*outFile, output); err != nil {
-			fmt.Fprintf(os.Stderr, "error writing file: %v\n", err)
-			os.Exit(3)
+			fmt.Fprintf(stderr, "error writing file: %v\n", err)
+			return 3
 		}
 	}
+	return 0
 }
-
 func checkArgs(inFile string, modify string, delimiter string) error {
 	if inFile == "" && modify == "" {
 		return errors.New("arguments -input and/or -modify are required")

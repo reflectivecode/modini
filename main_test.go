@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -299,4 +300,140 @@ func TestWriteFileKeepsHardLinks(t *testing.T) {
 	if string(content) != "new" {
 		t.Errorf(`Expected the hard link to see the new contents. Actual: %q`, content)
 	}
+}
+
+func runModini(args ...string) (int, string, string) {
+	var stdout, stderr strings.Builder
+	code := run(args, &stdout, &stderr)
+	return code, stdout.String(), stderr.String()
+}
+
+func TestRunWritesToStdout(t *testing.T) {
+	code, stdout, stderr := runModini("-modify", "[S];A=1")
+
+	if code != 0 {
+		t.Errorf(`Expected exit code 0. Actual: %v, stderr: %v`, code, stderr)
+	}
+	if stdout != "[S]\nA=1\n" {
+		t.Errorf(`Output not as expected. Actual: %q`, stdout)
+	}
+}
+
+func TestRunWritesToFile(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "input.ini")
+	output := filepath.Join(dir, "output.ini")
+	if err := os.WriteFile(input, []byte("[S]\nA=1\njunk\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	code, stdout, stderr := runModini("-input", input, "-output", output, "-modify", "[S];B=2", "-newline", `\r\n`)
+
+	if code != 0 {
+		t.Errorf(`Expected exit code 0. Actual: %v, stderr: %v`, code, stderr)
+	}
+	if stdout != "" {
+		t.Errorf(`Expected nothing on stdout. Actual: %q`, stdout)
+	}
+	if !strings.Contains(stderr, "skipping line #3: junk") {
+		t.Errorf(`Expected a warning for the junk line. Actual: %q`, stderr)
+	}
+	content, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "[S]\r\nA=1\r\nB=2\r\n" {
+		t.Errorf(`Output not as expected. Actual: %q`, content)
+	}
+}
+
+func TestRunVersion(t *testing.T) {
+	code, stdout, _ := runModini("-version")
+
+	if code != 0 || strings.TrimSpace(stdout) == "" {
+		t.Errorf(`Expected a version and exit code 0. Actual: %v, %q`, code, stdout)
+	}
+}
+
+func TestRunHelp(t *testing.T) {
+	code, _, stderr := runModini("-h")
+
+	if code != 0 || !strings.Contains(stderr, "-modify") {
+		t.Errorf(`Expected usage and exit code 0. Actual: %v, %q`, code, stderr)
+	}
+}
+
+func TestRunInvalidArguments(t *testing.T) {
+	cases := [][]string{
+		{},
+		{"-unknown"},
+		{"-modify", "[S];A=1", "-delimit", ""},
+	}
+
+	for _, args := range cases {
+		if code, _, _ := runModini(args...); code != 1 {
+			t.Errorf(`%v: expected exit code 1. Actual: %v`, args, code)
+		}
+	}
+}
+
+func TestRunInvalidModifyWritesNothing(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "output.ini")
+
+	code, stdout, stderr := runModini("-output", output, "-modify", "[S];A=1;oops")
+
+	if code != 1 {
+		t.Errorf(`Expected exit code 1. Actual: %v`, code)
+	}
+	if stdout != "" {
+		t.Errorf(`Expected nothing on stdout. Actual: %q`, stdout)
+	}
+	if !strings.Contains(stderr, `invalid modification: "oops"`) {
+		t.Errorf(`Expected an error naming the bad piece. Actual: %q`, stderr)
+	}
+	if _, err := os.Stat(output); !os.IsNotExist(err) {
+		t.Errorf(`Expected no output file. Actual error: %v`, err)
+	}
+}
+
+func TestRunUnreadableInputWritesNothing(t *testing.T) {
+	dir := t.TempDir()
+	utf16 := filepath.Join(dir, "utf16.ini")
+	if err := os.WriteFile(utf16, []byte{0xFF, 0xFE, '[', 0, 'S', 0, ']', 0}, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, input := range []string{filepath.Join(dir, "missing.ini"), utf16} {
+		output := filepath.Join(dir, "output.ini")
+
+		code, stdout, _ := runModini("-input", input, "-output", output)
+
+		if code != 2 {
+			t.Errorf(`%v: expected exit code 2. Actual: %v`, input, code)
+		}
+		if stdout != "" {
+			t.Errorf(`%v: expected nothing on stdout. Actual: %q`, input, stdout)
+		}
+		if _, err := os.Stat(output); !os.IsNotExist(err) {
+			t.Errorf(`%v: expected no output file. Actual error: %v`, input, err)
+		}
+	}
+}
+
+func TestRunWriteFailure(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "missing", "output.ini")
+	if code, _, _ := runModini("-modify", "[S];A=1", "-output", output); code != 3 {
+		t.Errorf(`Expected exit code 3 for an unwritable file. Actual: %v`, code)
+	}
+
+	var stderr strings.Builder
+	if code := run([]string{"-modify", "[S];A=1"}, failingWriter{}, &stderr); code != 3 {
+		t.Errorf(`Expected exit code 3 for a failed stdout write. Actual: %v`, code)
+	}
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("disk full")
 }
