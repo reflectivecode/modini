@@ -73,6 +73,25 @@ func TestReadFileStripsBOM(t *testing.T) {
 	}
 }
 
+func TestReadFileRejectsUTF16(t *testing.T) {
+	boms := map[string][]byte{
+		"little endian": {0xFF, 0xFE},
+		"big endian":    {0xFE, 0xFF},
+	}
+
+	for name, bom := range boms {
+		path := filepath.Join(t.TempDir(), "input.ini")
+		content := append(bom, []byte("[S]")...)
+		if err := os.WriteFile(path, content, 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := readFile(path); err == nil {
+			t.Errorf(`%v: expected an error for a UTF-16 file`, name)
+		}
+	}
+}
+
 func TestReadFileMissing(t *testing.T) {
 	_, err := readFile(filepath.Join(t.TempDir(), "missing.ini"))
 	if err == nil {

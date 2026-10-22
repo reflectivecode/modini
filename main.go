@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -103,6 +104,11 @@ func readFile(filename string) ([]string, error) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
+	}
+	// Reading UTF-16 as UTF-8 would mangle the file, so refuse it. This also
+	// catches UTF-32 LE, whose BOM starts with the same bytes.
+	if bytes.HasPrefix(content, []byte{0xFF, 0xFE}) || bytes.HasPrefix(content, []byte{0xFE, 0xFF}) {
+		return nil, errors.New("UTF-16 files are not supported, convert the file to UTF-8")
 	}
 	text := strings.TrimPrefix(string(content), utf8BOM)
 	return strings.Split(text, "\n"), nil

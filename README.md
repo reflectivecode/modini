@@ -59,6 +59,7 @@ Empty pieces, such as one left by a trailing `;`, are ignored. If your values co
 - Section and key names are case-sensitive, and spaces inside brackets count. `[a]`, `[A]` and `[ a ]` are three different sections.
 - Quotes are not interpreted. `x="a b"` has the value `"a b"`, including the quotes.
 - In `-modify`, `Prop+=value` and `Prop-=value` are always operators. To set a key whose name ends in `+` or `-`, put a space before the `=`, as in `Prop+ =value`.
+- The input file must be UTF-8, with or without a BOM. UTF-16 files are refused with exit code 2 rather than risk mangling them.
 - The output file is overwritten in place. If the write fails partway, for example because the disk is full, the file can be left empty or incomplete. When `-input` and `-output` are the same file, the original is lost in that case. If that matters, write to a different file and move it over the original once modini succeeds.
 
 ## Options
@@ -83,7 +84,7 @@ At least one of `-input` or `-modify` is required.
 | --- | --- |
 | 0 | Success |
 | 1 | Invalid arguments, or a piece of the modify string that can't be parsed. Nothing is written |
-| 2 | The input file can't be read. Nothing is written |
+| 2 | The input file can't be read, or is UTF-16. Nothing is written |
 | 3 | The output can't be written |
 
 ## Download
