@@ -214,6 +214,22 @@ func TestWriteFileFollowsSymlink(t *testing.T) {
 	}
 }
 
+func TestUnescapeNewline(t *testing.T) {
+	cases := map[string]string{
+		`\r\n`: "\r\n",
+		`\n`:   "\n",
+		`\r`:   "\r",
+		"\r\n": "\r\n",
+		"\n":   "\n",
+	}
+
+	for input, expected := range cases {
+		if actual := unescapeNewline(input); actual != expected {
+			t.Errorf(`unescapeNewline(%q) = %q, expected %q`, input, actual, expected)
+		}
+	}
+}
+
 func assertOnlyFiles(t *testing.T, dir string, names ...string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)

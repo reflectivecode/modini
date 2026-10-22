@@ -61,7 +61,7 @@ At least one of `-input` or `-modify` is required.
   -modify string
         Modifications to make. ex: [section1];prop1=value1;prop2=value2;[section2];prop1=value3.
   -newline string
-        Output uses this line ending. (default "\n")
+        Output uses this line ending. Escapes \r and \n are interpreted, ex: \r\n. (default "\n")
   -output string
         Path to output ini file.
   -version

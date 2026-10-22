@@ -15,7 +15,7 @@ func main() {
 	outFile := flag.String("output", "", "Path to output ini file.")
 	delimiter := flag.String("delimit", ";", "Split the modify string on this value.")
 	modify := flag.String("modify", "", "Modifications to make. ex: [section1];prop1=value1;prop2=value2;[section2];prop1=value3.")
-	newline := flag.String("newline", "\n", "Output uses this line ending.")
+	newline := flag.String("newline", "\n", `Output uses this line ending. Escapes \r and \n are interpreted, ex: \r\n.`)
 	showVersion := flag.Bool("version", false, "output the version")
 
 	flag.Parse()
@@ -46,7 +46,8 @@ func main() {
 		file.merge(readModify(*modify, *delimiter), false)
 	}
 
-	output := strings.Join(file.render(), *newline) + *newline
+	lineEnding := unescapeNewline(*newline)
+	output := strings.Join(file.render(), lineEnding) + lineEnding
 
 	if *outFile == "" {
 		fmt.Print(output)
@@ -76,6 +77,12 @@ func readModify(modify string, delimiter string) []string {
 		lines = append(lines, strings.Split(line, delimiter)...)
 	}
 	return lines
+}
+
+// unescapeNewline lets -newline be given as the text \r\n, since most
+// shells pass backslash sequences through literally.
+func unescapeNewline(value string) string {
+	return strings.NewReplacer(`\r`, "\r", `\n`, "\n").Replace(value)
 }
 
 // writeFile writes to a temp file in the same directory and renames it over
