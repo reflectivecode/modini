@@ -47,7 +47,8 @@ If your values contain `;`, choose a different delimiter with `-delimit`.
 - If a section appears more than once in the input, its properties are merged into one section.
 - Duplicate `Prop=value` lines are collapsed into one.
 - Whitespace around `=`, `+=` and `-=` is removed, so `Prop = value` is written as `Prop=value`.
-- Comments and any lines that can't be parsed are dropped. A warning for each is printed to stderr.
+- Comments and any lines in the input file that can't be parsed are dropped. A warning for each is printed to stderr.
+- A piece of the modify string that can't be parsed is an error. Nothing is written and the exit code is 1.
 - `-input` and `-output` can be the same file. The output is written to a temporary file and then renamed into place, so a failed write leaves the original untouched.
 - If `-output` is omitted, the result is written to stdout.
 

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
 	"regexp"
 )
 
@@ -55,10 +53,17 @@ var propertyRegex = regexp.MustCompile(`^\s*([^\s;#\[=][^=]*?)\s*(=|\+=|\-=)\s*(
 // The section regex requires a non-empty name, so this can't collide.
 const globalSection = ""
 
-func (file *iniFile) merge(lines []string, isFile bool) {
+type skippedLine struct {
+	number int
+	text   string
+}
+
+// merge applies lines to the file and returns the lines it couldn't parse.
+func (file *iniFile) merge(lines []string, isFile bool) []skippedLine {
 	// In modify mode, sections and properties are only created when a value
 	// is set or added, so a removal never adds anything to the output.
 	sectionName := globalSection
+	skipped := []skippedLine{}
 
 	for i, line := range lines {
 		if emptyRegex.MatchString(line) {
@@ -101,8 +106,9 @@ func (file *iniFile) merge(lines []string, isFile bool) {
 			}
 		}
 
-		fmt.Fprintf(os.Stderr, "skipping line #%v: %v\n", i+1, line)
+		skipped = append(skipped, skippedLine{number: i + 1, text: line})
 	}
+	return skipped
 }
 
 func (file *iniFile) render() []string {

@@ -40,11 +40,21 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error reading file: %v\n", err)
 			os.Exit(2)
 		}
-		file.merge(lines, true)
+		for _, skipped := range file.merge(lines, true) {
+			fmt.Fprintf(os.Stderr, "skipping line #%v: %v\n", skipped.number, skipped.text)
+		}
 	}
 
 	if *modify != "" {
-		file.merge(readModify(*modify, *delimiter), false)
+		// Unlike junk in an input file, a bad modification is a mistake by
+		// the caller, so fail before writing anything.
+		invalid := file.merge(readModify(*modify, *delimiter), false)
+		for _, skipped := range invalid {
+			fmt.Fprintf(os.Stderr, "invalid modification: %q\n", skipped.text)
+		}
+		if len(invalid) > 0 {
+			os.Exit(1)
+		}
 	}
 
 	lineEnding := unescapeNewline(*newline)

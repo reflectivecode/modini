@@ -70,12 +70,39 @@ func TestSkipsGarbage(t *testing.T) {
 		"Thing1=a",
 	}
 
+	expectedSkipped := []skippedLine{
+		{1, "garbage1"},
+		{4, "garbage2"},
+		{6, "garbage3"},
+		{10, "garbage4"},
+		{11, "=a"},
+		{12, "[begin"},
+		{13, "end]"},
+	}
+
 	file := newFile()
-	file.merge(input, true)
+	skipped := file.merge(input, true)
 	actual := file.render()
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+	if !reflect.DeepEqual(skipped, expectedSkipped) {
+		t.Errorf(`Skipped lines not as expected. Actual: %v`, skipped)
+	}
+}
+
+func TestInvalidModifyIsReported(t *testing.T) {
+	file := newFile()
+	skipped := file.merge([]string{"[S]", "A=1", "Bvalue", "[Broken", "", "C"}, false)
+
+	expected := []skippedLine{
+		{3, "Bvalue"},
+		{4, "[Broken"},
+		{6, "C"},
+	}
+	if !reflect.DeepEqual(skipped, expected) {
+		t.Errorf(`Skipped lines not as expected. Actual: %v`, skipped)
 	}
 }
 
