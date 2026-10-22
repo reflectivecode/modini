@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -48,14 +47,14 @@ func main() {
 	output := strings.Join(file.render(), *newline) + *newline
 
 	if *outFile == "" {
-		fmt.Printf(output)
+		fmt.Print(output)
 	} else {
 		writeFile(*outFile, output)
 	}
 }
 
 func readFile(channel chan<- string, filename string) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error reading file: %v\n", err)
 		os.Exit(2)
@@ -76,7 +75,7 @@ func readModify(channel chan<- string, modify string, delimiter string) {
 }
 
 func writeFile(filename string, contents string) {
-	err := ioutil.WriteFile(filename, []byte(contents), 0644)
+	err := os.WriteFile(filename, []byte(contents), 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error writing file: %v\n", err)
 		os.Exit(3)

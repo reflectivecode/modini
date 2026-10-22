@@ -42,8 +42,12 @@ var emptyRegex = regexp.MustCompile(`^\s*$`)
 var sectionRegex = regexp.MustCompile(`^\[([^\[\]]+)\]\s*$`)
 var propertyRegex = regexp.MustCompile(`^(\w[^=]*?)(=|\+=|\-=)(.*?)\s*$`)
 
+// globalSection holds properties that appear before any [section] header.
+// The section regex requires a non-empty name, so this can't collide.
+const globalSection = ""
+
 func (file *iniFile) merge(channel <-chan string, isFile bool) {
-	var currentSection *iniSection
+	currentSection := file.getSection(globalSection)
 
 	i := 0
 	for line := range channel {
@@ -91,17 +95,31 @@ func (file *iniFile) merge(channel <-chan string, isFile bool) {
 
 func (file *iniFile) render() []string {
 	result := []string{}
-	for i, section := range file.allSections() {
-		if i > 0 {
+
+	if global, isFound := file.sectionMap[globalSection]; isFound {
+		result = append(result, renderProperties(global)...)
+	}
+
+	for _, section := range file.allSections() {
+		if section.name == globalSection {
+			continue
+		}
+
+		if len(result) > 0 {
 			result = append(result, "")
 		}
 
 		result = append(result, "["+section.name+"]")
+		result = append(result, renderProperties(section)...)
+	}
+	return result
+}
 
-		for _, property := range section.allProperties() {
-			for _, value := range property.values {
-				result = append(result, property.name+"="+value)
-			}
+func renderProperties(section *iniSection) []string {
+	result := []string{}
+	for _, property := range section.allProperties() {
+		for _, value := range property.values {
+			result = append(result, property.name+"="+value)
 		}
 	}
 	return result
