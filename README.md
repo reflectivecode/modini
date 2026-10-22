@@ -52,6 +52,13 @@ If your values contain `;`, choose a different delimiter with `-delimit`.
 - `-input` and `-output` can be the same file. The output is written to a temporary file and then renamed into place, so a failed write leaves the original untouched.
 - If `-output` is omitted, the result is written to stdout.
 
+## Limitations
+- Comments are not preserved, and the output is reformatted: one blank line between sections and no whitespace around `=`.
+- Text after a value is part of the value. `x=1 ; note` has the value `1 ; note`. Only section headers have a trailing comment removed.
+- Section and key names are case-sensitive, and spaces inside brackets count. `[a]`, `[A]` and `[ a ]` are three different sections.
+- Quotes are not interpreted. `x="a b"` has the value `"a b"`, including the quotes.
+- In `-modify`, `Prop+=value` and `Prop-=value` are always operators. To set a key whose name ends in `+` or `-`, put a space before the `=`, as in `Prop+ =value`.
+
 ## Options
 At least one of `-input` or `-modify` is required.
 ```
