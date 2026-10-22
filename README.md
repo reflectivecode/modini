@@ -40,13 +40,14 @@ The modify string is split on the delimiter (`;` by default) and on newlines. Ea
 
 Properties that come before any `[Section]` apply to the top of the file, outside any section.
 
-If your values contain `;`, choose a different delimiter with `-delimit`.
+Empty pieces, such as one left by a trailing `;`, are ignored. If your values contain `;`, choose a different delimiter with `-delimit`.
 
 ## Notes
 - Sections and properties keep their original order, and new ones are added at the end.
 - If a section appears more than once in the input, its properties are merged into one section.
 - Duplicate `Prop=value` lines are collapsed into one.
-- Whitespace around `=`, `+=` and `-=` is removed, so `Prop = value` is written as `Prop=value`.
+- Whitespace around `=` is removed, so `Prop = value` is written as `Prop=value`. In the modify string, whitespace around `+=` and `-=` is removed too.
+- In the input file, `+=` and `-=` have no special meaning. `CFLAGS+=-O2` is the key `CFLAGS+` with the value `-O2`.
 - Comments and any lines in the input file that can't be parsed are dropped. A warning for each is printed to stderr.
 - A piece of the modify string that can't be parsed is an error. Nothing is written and the exit code is 1.
 - `-input` and `-output` can be the same file.
@@ -77,8 +78,30 @@ At least one of `-input` or `-modify` is required.
         output the version
 ```
 
+## Exit codes
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 1 | Invalid arguments, or a piece of the modify string that can't be parsed. Nothing is written |
+| 2 | The input file can't be read. Nothing is written |
+| 3 | The output can't be written |
+
 ## Download
-Prebuilt binaries for Linux, macOS and Windows are attached to each [GitHub release](https://github.com/reflectivecode/modini/releases), along with a `SHA256SUMS` file.
+Prebuilt binaries are attached to each [GitHub release](https://github.com/reflectivecode/modini/releases), along with a `SHA256SUMS` file. Releases tagged with a `-`, such as `v1.0.0-rc1`, are marked as pre-releases.
+
+| File | Platform |
+| --- | --- |
+| `modini-amd64` | Linux x86-64 |
+| `modini-arm64` | Linux ARM64 |
+| `modini-arm` | Linux ARM (32-bit) |
+| `modini-386` | Linux x86 (32-bit) |
+| `modini-darwin` | macOS Intel |
+| `modini-darwin-arm64` | macOS Apple Silicon |
+| `modini-amd64.exe` | Windows x86-64 |
+| `modini-arm64.exe` | Windows ARM64 |
+| `modini-386.exe` | Windows x86 (32-bit) |
+
+To always get the newest stable release, use `https://github.com/reflectivecode/modini/releases/latest/download/<file>`.
 
 ## Build
 Requires Go 1.26 or newer.
