@@ -245,6 +245,21 @@ func TestCheckArgs(t *testing.T) {
 	}
 }
 
+func TestGetVersion(t *testing.T) {
+	original := version
+	defer func() { version = original }()
+
+	version = "v1.2.3"
+	if actual := getVersion(); actual != "v1.2.3" {
+		t.Errorf(`Expected the release version. Actual: %q`, actual)
+	}
+
+	version = ""
+	if actual := getVersion(); actual == "" {
+		t.Error("expected a fallback version")
+	}
+}
+
 func assertOnlyFiles(t *testing.T, dir string, names ...string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)

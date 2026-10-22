@@ -6,10 +6,24 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 )
 
+// version is set by the release build with -ldflags "-X main.version=...".
 var version string
+
+// getVersion falls back to the version Go records for "go install" and
+// for builds from a tagged git checkout.
+func getVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
 
 func main() {
 	inFile := flag.String("input", "", "Path to input ini file.")
@@ -22,7 +36,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Println(version)
+		fmt.Println(getVersion())
 		return
 	}
 
