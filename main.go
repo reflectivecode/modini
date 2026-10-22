@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -25,8 +26,8 @@ func main() {
 		return
 	}
 
-	if *inFile == "" && *modify == "" {
-		fmt.Fprintf(os.Stderr, "arguments -input and/or -modify are required\n\n")
+	if err := checkArgs(*inFile, *modify, *delimiter); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n\n", err)
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -57,6 +58,16 @@ func main() {
 			os.Exit(3)
 		}
 	}
+}
+
+func checkArgs(inFile string, modify string, delimiter string) error {
+	if inFile == "" && modify == "" {
+		return errors.New("arguments -input and/or -modify are required")
+	}
+	if delimiter == "" {
+		return errors.New("argument -delimit cannot be empty")
+	}
+	return nil
 }
 
 // utf8BOM is often written at the start of files by Windows editors.

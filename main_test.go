@@ -230,6 +230,21 @@ func TestUnescapeNewline(t *testing.T) {
 	}
 }
 
+func TestCheckArgs(t *testing.T) {
+	if err := checkArgs("in.ini", "", ";"); err != nil {
+		t.Errorf(`Expected input alone to be valid. Actual: %v`, err)
+	}
+	if err := checkArgs("", "[S];A=1", ";"); err != nil {
+		t.Errorf(`Expected modify alone to be valid. Actual: %v`, err)
+	}
+	if err := checkArgs("", "", ";"); err == nil {
+		t.Error("expected an error when -input and -modify are both missing")
+	}
+	if err := checkArgs("in.ini", "[S];A=1", ""); err == nil {
+		t.Error("expected an error for an empty -delimit")
+	}
+}
+
 func assertOnlyFiles(t *testing.T, dir string, names ...string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
