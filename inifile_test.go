@@ -454,3 +454,64 @@ func TestIndentedAndPunctuatedKeys(t *testing.T) {
 		t.Errorf(`Output not as expected. Actual: %v`, actual)
 	}
 }
+
+func TestRemoveDoesNotCreate(t *testing.T) {
+	input1 := []string{
+		"[S]",
+		"A=1",
+	}
+
+	input2 := []string{
+		"[Legacy]",
+		"old-=x",
+		"[S]",
+		"B-=2",
+		"A-=9",
+		"global-=y",
+	}
+
+	expected := []string{
+		"[S]",
+		"A=1",
+	}
+
+	file := newFile()
+	file.merge(input1, true)
+	file.merge(input2, false)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+
+	// A later set should still create the property in its natural position.
+	file.merge([]string{"[S]", "B=2"}, false)
+	actual = file.render()
+	expected = []string{"[S]", "A=1", "B=2"}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
+func TestEmptySectionFromInputIsKept(t *testing.T) {
+	input := []string{
+		"[Empty]",
+		"[S]",
+		"A=1",
+	}
+
+	expected := []string{
+		"[Empty]",
+		"",
+		"[S]",
+		"A=1",
+	}
+
+	file := newFile()
+	file.merge(input, true)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}

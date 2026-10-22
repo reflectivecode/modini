@@ -29,6 +29,15 @@ func (file *iniFile) getSection(name string) *iniSection {
 	return section
 }
 
+// findProperty returns nil if the section or property doesn't exist.
+func (file *iniFile) findProperty(sectionName string, propertyName string) *iniProperty {
+	section, isFound := file.sectionMap[sectionName]
+	if !isFound {
+		return nil
+	}
+	return section.propertyMap[propertyName]
+}
+
 func (file *iniFile) allSections() []*iniSection {
 	sections := []*iniSection{}
 	for _, sectionName := range file.sectionOrder {
@@ -47,7 +56,9 @@ var propertyRegex = regexp.MustCompile(`^\s*([^\s;#\[=][^=]*?)\s*(=|\+=|\-=)\s*(
 const globalSection = ""
 
 func (file *iniFile) merge(lines []string, isFile bool) {
-	currentSection := file.getSection(globalSection)
+	// In modify mode, sections and properties are only created when a value
+	// is set or added, so a removal never adds anything to the output.
+	sectionName := globalSection
 
 	for i, line := range lines {
 		if emptyRegex.MatchString(line) {
@@ -56,8 +67,10 @@ func (file *iniFile) merge(lines []string, isFile bool) {
 
 		sectionMatch := sectionRegex.FindStringSubmatch(line)
 		if len(sectionMatch) > 0 {
-			section := sectionMatch[1]
-			currentSection = file.getSection(section)
+			sectionName = sectionMatch[1]
+			if isFile {
+				file.getSection(sectionName)
+			}
 			continue
 		}
 
@@ -68,19 +81,21 @@ func (file *iniFile) merge(lines []string, isFile bool) {
 			value := propertyMatch[3]
 			if isFile {
 				if operator == "=" {
-					currentSection.getProperty(property).addValue(value)
+					file.getSection(sectionName).getProperty(property).addValue(value)
 					continue
 				}
 			} else {
 				switch operator {
 				case "=":
-					currentSection.getProperty(property).setValue(value)
+					file.getSection(sectionName).getProperty(property).setValue(value)
 					continue
 				case "+=":
-					currentSection.getProperty(property).addValue(value)
+					file.getSection(sectionName).getProperty(property).addValue(value)
 					continue
 				case "-=":
-					currentSection.getProperty(property).removeValue(value)
+					if existing := file.findProperty(sectionName, property); existing != nil {
+						existing.removeValue(value)
+					}
 					continue
 				}
 			}

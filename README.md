@@ -33,7 +33,7 @@ The modify string is split on the delimiter (`;` by default) and on newlines. Ea
 
 | Syntax | Effect |
 | --- | --- |
-| `[Section]` | Following modifications apply to this section (created if missing) |
+| `[Section]` | Following modifications apply to this section (created when a value is set or added) |
 | `Prop=value` | Replace all values of `Prop` with `value` |
 | `Prop+=value` | Add `value` to `Prop`, unless it is already present |
 | `Prop-=value` | Remove `value` from `Prop` |
