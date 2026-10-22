@@ -48,7 +48,7 @@ If your values contain `;`, choose a different delimiter with `-delimit`.
 - Duplicate `Prop=value` lines are collapsed into one.
 - Whitespace around `=`, `+=` and `-=` is removed, so `Prop = value` is written as `Prop=value`.
 - Comments and any lines that can't be parsed are dropped. A warning for each is printed to stderr.
-- `-input` and `-output` can be the same file.
+- `-input` and `-output` can be the same file. The output is written to a temporary file and then renamed into place, so a failed write leaves the original untouched.
 - If `-output` is omitted, the result is written to stdout.
 
 ## Options

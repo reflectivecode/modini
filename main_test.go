@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -121,5 +122,109 @@ func TestReadmeExample(t *testing.T) {
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
+
+func TestWriteFileReplacesContents(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.ini")
+	if err := os.WriteFile(path, []byte("old contents that are longer"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writeFile(path, "new"); err != nil {
+		t.Fatal(err)
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "new" {
+		t.Errorf(`Output not as expected. Actual: %q`, content)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
+		t.Errorf(`Expected permissions to be kept. Actual: %v`, info.Mode().Perm())
+	}
+
+	assertOnlyFiles(t, dir, "out.ini")
+}
+
+func TestWriteFileCreatesNewFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.ini")
+
+	if err := writeFile(path, "new"); err != nil {
+		t.Fatal(err)
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "new" {
+		t.Errorf(`Output not as expected. Actual: %q`, content)
+	}
+
+	assertOnlyFiles(t, dir, "out.ini")
+}
+
+func TestWriteFileMissingDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing", "out.ini")
+
+	if err := writeFile(path, "new"); err == nil {
+		t.Error("expected an error for a missing directory")
+	}
+}
+
+func TestWriteFileFollowsSymlink(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.ini")
+	link := filepath.Join(dir, "link.ini")
+	if err := os.WriteFile(target, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("cannot create symlink: %v", err)
+	}
+
+	if err := writeFile(link, "new"); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Error("expected the symlink to be kept")
+	}
+
+	content, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "new" {
+		t.Errorf(`Output not as expected. Actual: %q`, content)
+	}
+}
+
+func assertOnlyFiles(t *testing.T, dir string, names ...string) {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual := []string{}
+	for _, entry := range entries {
+		actual = append(actual, entry.Name())
+	}
+	if !reflect.DeepEqual(actual, names) {
+		t.Errorf(`Unexpected files in directory: %v`, actual)
 	}
 }

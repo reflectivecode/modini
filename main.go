@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -50,7 +51,10 @@ func main() {
 	if *outFile == "" {
 		fmt.Print(output)
 	} else {
-		writeFile(*outFile, output)
+		if err := writeFile(*outFile, output); err != nil {
+			fmt.Fprintf(os.Stderr, "error writing file: %v\n", err)
+			os.Exit(3)
+		}
 	}
 }
 
@@ -74,10 +78,41 @@ func readModify(modify string, delimiter string) []string {
 	return lines
 }
 
-func writeFile(filename string, contents string) {
-	err := os.WriteFile(filename, []byte(contents), 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error writing file: %v\n", err)
-		os.Exit(3)
+// writeFile writes to a temp file in the same directory and renames it over
+// the target, so a failed write never leaves a truncated file behind.
+func writeFile(filename string, contents string) (err error) {
+	// Replace the file a symlink points to, not the symlink itself.
+	if resolved, resolveErr := filepath.EvalSymlinks(filename); resolveErr == nil {
+		filename = resolved
 	}
+
+	mode := os.FileMode(0644)
+	if info, statErr := os.Stat(filename); statErr == nil {
+		mode = info.Mode().Perm()
+	}
+
+	temp, err := os.CreateTemp(filepath.Dir(filename), filepath.Base(filename)+".tmp*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			temp.Close()
+			os.Remove(temp.Name())
+		}
+	}()
+
+	if _, err = temp.WriteString(contents); err != nil {
+		return err
+	}
+	if err = temp.Sync(); err != nil {
+		return err
+	}
+	if err = temp.Close(); err != nil {
+		return err
+	}
+	if err = os.Chmod(temp.Name(), mode); err != nil {
+		return err
+	}
+	return os.Rename(temp.Name(), filename)
 }
