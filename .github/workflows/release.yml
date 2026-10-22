@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - run: go test -v ./...
+      - name: Build
+        env:
+          CGO_ENABLED: '0'
+          VERSION: ${{ github.ref_name }}
+        run: |
+          build() {
+            GOOS=$1 GOARCH=$2 go build -trimpath -o "bin/$3" -ldflags "-s -w -X main.version=$VERSION"
+          }
+          build linux   386   modini-386
+          build linux   amd64 modini-amd64
+          build linux   arm   modini-arm
+          build linux   arm64 modini-arm64
+          build darwin  amd64 modini-darwin
+          build darwin  arm64 modini-darwin-arm64
+          build windows 386   modini-386.exe
+          build windows amd64 modini-amd64.exe
+          build windows arm64 modini-arm64.exe
+          cd bin
+          sha256sum modini* | tee SHA256SUMS
+          ls -l
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" bin/* --title "$GITHUB_REF_NAME" --generate-notes
