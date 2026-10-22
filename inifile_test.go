@@ -6,7 +6,7 @@ import (
 )
 
 func TestRenderOrder(t *testing.T) {
-	input := sliceToChannel([]string{
+	input := []string{
 		"[My.Section]",
 		"Prop=value",
 		"Prop=this is a test",
@@ -19,7 +19,7 @@ func TestRenderOrder(t *testing.T) {
 		"[My.Section]",
 		"Other=yes",
 		"a=b",
-	})
+	}
 
 	expected := []string{
 		"[My.Section]",
@@ -44,7 +44,7 @@ func TestRenderOrder(t *testing.T) {
 }
 
 func TestSkipsGarbage(t *testing.T) {
-	input := sliceToChannel([]string{
+	input := []string{
 		"garbage1",
 		"[My.Section]",
 		"Prop=value",
@@ -58,7 +58,7 @@ func TestSkipsGarbage(t *testing.T) {
 		"=a",
 		"[begin",
 		"end]",
-	})
+	}
 
 	expected := []string{
 		"[My.Section]",
@@ -80,7 +80,7 @@ func TestSkipsGarbage(t *testing.T) {
 }
 
 func TestMergesCorrectly(t *testing.T) {
-	input1 := sliceToChannel([]string{
+	input1 := []string{
 		"[My.Section]",
 		"Prop=value",
 		"Prop=this is a test",
@@ -92,9 +92,9 @@ func TestMergesCorrectly(t *testing.T) {
 		"[My.Section]",
 		"Other=yes",
 		"Other=no",
-	})
+	}
 
-	input2 := sliceToChannel([]string{
+	input2 := []string{
 		"[New.Section]",
 		"Window=yes",
 		"[My.Section]",
@@ -105,7 +105,7 @@ func TestMergesCorrectly(t *testing.T) {
 		"Thing2=c",
 		"Thing3=d",
 		"",
-	})
+	}
 
 	expected := []string{
 		"[My.Section]",
@@ -133,11 +133,11 @@ func TestMergesCorrectly(t *testing.T) {
 }
 
 func TestNoDuplicatesFromInput(t *testing.T) {
-	input := sliceToChannel([]string{
+	input := []string{
 		"[My.Section]",
 		"Prop=value",
 		"Prop=value",
-	})
+	}
 
 	expected := []string{
 		"[My.Section]",
@@ -154,16 +154,16 @@ func TestNoDuplicatesFromInput(t *testing.T) {
 }
 
 func TestNoDuplicatesFromModify(t *testing.T) {
-	input1 := sliceToChannel([]string{
+	input1 := []string{
 		"[My.Section]",
 		"Prop=value",
 		"Prop=b",
-	})
+	}
 
-	input2 := sliceToChannel([]string{
+	input2 := []string{
 		"[My.Section]",
 		"Prop+=value",
-	})
+	}
 
 	expected := []string{
 		"[My.Section]",
@@ -182,17 +182,17 @@ func TestNoDuplicatesFromModify(t *testing.T) {
 }
 
 func TestGlobalProperties(t *testing.T) {
-	input1 := sliceToChannel([]string{
+	input1 := []string{
 		"root=true",
 		"[My.Section]",
 		"Prop=value",
-	})
+	}
 
-	input2 := sliceToChannel([]string{
+	input2 := []string{
 		"extra=yes",
 		"[My.Section]",
 		"Prop=changed",
-	})
+	}
 
 	expected := []string{
 		"root=true",
@@ -214,7 +214,7 @@ func TestGlobalProperties(t *testing.T) {
 
 func TestModifyOnlyGlobal(t *testing.T) {
 	file := newFile()
-	file.merge(sliceToChannel([]string{"Prop=x"}), false)
+	file.merge([]string{"Prop=x"}, false)
 	actual := file.render()
 
 	expected := []string{"Prop=x"}
@@ -225,7 +225,7 @@ func TestModifyOnlyGlobal(t *testing.T) {
 
 func TestEmptyFile(t *testing.T) {
 	file := newFile()
-	file.merge(sliceToChannel([]string{}), true)
+	file.merge([]string{}, true)
 	actual := file.render()
 
 	if len(actual) != 0 {
@@ -234,18 +234,18 @@ func TestEmptyFile(t *testing.T) {
 }
 
 func TestSetReplacesAllValues(t *testing.T) {
-	input1 := sliceToChannel([]string{
+	input1 := []string{
 		"[S]",
 		"List=a",
 		"List=b",
 		"List=c",
-	})
+	}
 
-	input2 := sliceToChannel([]string{
+	input2 := []string{
 		"[S]",
 		"List=z",
 		"List-=missing",
-	})
+	}
 
 	expected := []string{
 		"[S]",
@@ -263,16 +263,16 @@ func TestSetReplacesAllValues(t *testing.T) {
 }
 
 func TestRemoveLastValueDropsProperty(t *testing.T) {
-	input1 := sliceToChannel([]string{
+	input1 := []string{
 		"[S]",
 		"A=1",
 		"B=2",
-	})
+	}
 
-	input2 := sliceToChannel([]string{
+	input2 := []string{
 		"[S]",
 		"A-=1",
-	})
+	}
 
 	expected := []string{
 		"[S]",
@@ -290,12 +290,12 @@ func TestRemoveLastValueDropsProperty(t *testing.T) {
 }
 
 func TestOperatorsIgnoredInInputFile(t *testing.T) {
-	input := sliceToChannel([]string{
+	input := []string{
 		"[S]",
 		"A=1",
 		"A+=2",
 		"A-=1",
-	})
+	}
 
 	expected := []string{
 		"[S]",
@@ -312,12 +312,12 @@ func TestOperatorsIgnoredInInputFile(t *testing.T) {
 }
 
 func TestValuesKeepSpecialCharacters(t *testing.T) {
-	input := sliceToChannel([]string{
+	input := []string{
 		"[S]",
 		"Format=100% %s %d",
 		"Url=http://example.com/?a=b&c=d",
 		"Trailing=value   ",
-	})
+	}
 
 	expected := []string{
 		"[S]",
@@ -336,11 +336,11 @@ func TestValuesKeepSpecialCharacters(t *testing.T) {
 }
 
 func TestWindowsLineEndings(t *testing.T) {
-	input := sliceToChannel([]string{
+	input := []string{
 		"[S]\r",
 		"A=1\r",
 		"\r",
-	})
+	}
 
 	expected := []string{
 		"[S]",
@@ -354,17 +354,4 @@ func TestWindowsLineEndings(t *testing.T) {
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf(`Output not as expected. Actual: %v`, actual)
 	}
-}
-
-func sliceToChannel(list []string) <-chan string {
-	channel := make(chan string)
-	go sliceToChannelHelper(channel, list)
-	return channel
-}
-
-func sliceToChannelHelper(channel chan<- string, lines []string) {
-	for _, line := range lines {
-		channel <- line
-	}
-	close(channel)
 }

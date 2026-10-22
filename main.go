@@ -33,15 +33,16 @@ func main() {
 	file := newFile()
 
 	if *inFile != "" {
-		channel := make(chan string)
-		go readFile(channel, *inFile)
-		file.merge(channel, true)
+		lines, err := readFile(*inFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error reading file: %v\n", err)
+			os.Exit(2)
+		}
+		file.merge(lines, true)
 	}
 
 	if *modify != "" {
-		channel := make(chan string)
-		go readModify(channel, *modify, *delimiter)
-		file.merge(channel, false)
+		file.merge(readModify(*modify, *delimiter), false)
 	}
 
 	output := strings.Join(file.render(), *newline) + *newline
@@ -53,25 +54,20 @@ func main() {
 	}
 }
 
-func readFile(channel chan<- string, filename string) {
+func readFile(filename string) ([]string, error) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error reading file: %v\n", err)
-		os.Exit(2)
+		return nil, err
 	}
-	for _, line := range strings.Split(string(content), "\n") {
-		channel <- line
-	}
-	close(channel)
+	return strings.Split(string(content), "\n"), nil
 }
 
-func readModify(channel chan<- string, modify string, delimiter string) {
+func readModify(modify string, delimiter string) []string {
+	lines := []string{}
 	for _, line := range strings.Split(modify, "\n") {
-		for _, line := range strings.Split(line, delimiter) {
-			channel <- line
-		}
+		lines = append(lines, strings.Split(line, delimiter)...)
 	}
-	close(channel)
+	return lines
 }
 
 func writeFile(filename string, contents string) {

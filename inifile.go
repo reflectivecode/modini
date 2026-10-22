@@ -46,13 +46,10 @@ var propertyRegex = regexp.MustCompile(`^(\w[^=]*?)(=|\+=|\-=)(.*?)\s*$`)
 // The section regex requires a non-empty name, so this can't collide.
 const globalSection = ""
 
-func (file *iniFile) merge(channel <-chan string, isFile bool) {
+func (file *iniFile) merge(lines []string, isFile bool) {
 	currentSection := file.getSection(globalSection)
 
-	i := 0
-	for line := range channel {
-		i++
-
+	for i, line := range lines {
 		if emptyRegex.MatchString(line) {
 			continue
 		}
@@ -89,7 +86,7 @@ func (file *iniFile) merge(channel <-chan string, isFile bool) {
 			}
 		}
 
-		fmt.Fprintf(os.Stderr, "skipping line #%v: %v\n", i, line)
+		fmt.Fprintf(os.Stderr, "skipping line #%v: %v\n", i+1, line)
 	}
 }
 
