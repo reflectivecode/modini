@@ -355,3 +355,38 @@ func TestWindowsLineEndings(t *testing.T) {
 		t.Errorf(`Output not as expected. Actual: %v`, actual)
 	}
 }
+
+func TestSectionHeaderWithIndentAndComment(t *testing.T) {
+	input := []string{
+		"[A]",
+		"x=1",
+		"[B] ; database settings",
+		"y=2",
+		"  [C]",
+		"z=3",
+		"[D]   # other",
+		"w=4",
+	}
+
+	expected := []string{
+		"[A]",
+		"x=1",
+		"",
+		"[B]",
+		"y=2",
+		"",
+		"[C]",
+		"z=3",
+		"",
+		"[D]",
+		"w=4",
+	}
+
+	file := newFile()
+	file.merge(input, true)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}
