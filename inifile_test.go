@@ -424,3 +424,33 @@ func TestWhitespaceAroundOperators(t *testing.T) {
 		t.Errorf(`Output not as expected. Actual: %v`, actual)
 	}
 }
+
+func TestIndentedAndPunctuatedKeys(t *testing.T) {
+	input := []string{
+		"[S]",
+		"    name=foo",
+		"\tTab=bar",
+		".NET=4",
+		"@version=2",
+		"$var=x",
+		"; comment=not a key",
+		"# comment=not a key",
+	}
+
+	expected := []string{
+		"[S]",
+		"name=foo",
+		"Tab=bar",
+		".NET=4",
+		"@version=2",
+		"$var=x",
+	}
+
+	file := newFile()
+	file.merge(input, true)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}

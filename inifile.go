@@ -40,7 +40,7 @@ func (file *iniFile) allSections() []*iniSection {
 
 var emptyRegex = regexp.MustCompile(`^\s*$`)
 var sectionRegex = regexp.MustCompile(`^\s*\[([^\[\]]+)\]\s*([;#].*)?$`)
-var propertyRegex = regexp.MustCompile(`^(\w[^=]*?)\s*(=|\+=|\-=)\s*(.*?)\s*$`)
+var propertyRegex = regexp.MustCompile(`^\s*([^\s;#\[=][^=]*?)\s*(=|\+=|\-=)\s*(.*?)\s*$`)
 
 // globalSection holds properties that appear before any [section] header.
 // The section regex requires a non-empty name, so this can't collide.
