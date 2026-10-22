@@ -41,7 +41,20 @@ jobs:
           cd bin
           sha256sum modini* | tee SHA256SUMS
           ls -l
+      # Safe to re-run: the release is created as a draft, files are replaced
+      # if already uploaded, and it is only published once every file is up.
+      # Tags with a "-" (v1.0.0-rc1) are pre-releases and never marked Latest.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" bin/* --title "$GITHUB_REF_NAME" --generate-notes
+          TAG: ${{ github.ref_name }}
+        run: |
+          flags=()
+          if [[ "$TAG" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes "${flags[@]}"
+          fi
+          gh release upload "$TAG" bin/* --clobber
+          gh release edit "$TAG" --draft=false "${flags[@]}"
