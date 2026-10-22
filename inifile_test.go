@@ -390,3 +390,37 @@ func TestSectionHeaderWithIndentAndComment(t *testing.T) {
 		t.Errorf(`Output not as expected. Actual: %v`, actual)
 	}
 }
+
+func TestWhitespaceAroundOperators(t *testing.T) {
+	input1 := []string{
+		"[S]",
+		"port = 80",
+		"list = a",
+		"list= b",
+		"name =value with spaces",
+	}
+
+	input2 := []string{
+		"[S]",
+		"port = 8080",
+		"list -= a",
+		"list += c",
+	}
+
+	expected := []string{
+		"[S]",
+		"port=8080",
+		"list=b",
+		"list=c",
+		"name=value with spaces",
+	}
+
+	file := newFile()
+	file.merge(input1, true)
+	file.merge(input2, false)
+	actual := file.render()
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf(`Output not as expected. Actual: %v`, actual)
+	}
+}

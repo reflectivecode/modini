@@ -46,6 +46,7 @@ If your values contain `;`, choose a different delimiter with `-delimit`.
 - Sections and properties keep their original order, and new ones are added at the end.
 - If a section appears more than once in the input, its properties are merged into one section.
 - Duplicate `Prop=value` lines are collapsed into one.
+- Whitespace around `=`, `+=` and `-=` is removed, so `Prop = value` is written as `Prop=value`.
 - Comments and any lines that can't be parsed are dropped. A warning for each is printed to stderr.
 - `-input` and `-output` can be the same file.
 - If `-output` is omitted, the result is written to stdout.
